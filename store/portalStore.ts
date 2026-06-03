@@ -1,59 +1,39 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { persist, createJSONStorage } from "zustand/middleware"
 import { nanoid } from "nanoid"
+import { supabase } from "@/lib/supabase"
 import type {
   Task, NeedItem, ActivityItem, Service, Lead, Analytics, ContentItem,
-  TaskCategory, TaskWeek, NeedPriority, LeadStatus, ContentColumn, ContentType
+  ContentColumn,
 } from "@/types"
 
-interface PortalStore {
-  isAdminMode: boolean
-  setAdminMode: (v: boolean) => void
-
-  hasSeeded: boolean
-
-  services: Service[]
-  activity: ActivityItem[]
-  tasks: Task[]
-  needs: NeedItem[]
-  leads: Lead[]
-  analytics: Analytics
-  content: ContentItem[]
-
-  // Task actions
-  addTask: (task: Omit<Task, "id">) => void
-  addTasks: (tasks: Omit<Task, "id">[]) => void
-  updateTask: (id: string, updates: Partial<Task>) => void
-  deleteTask: (id: string) => void
-  toggleTaskStatus: (id: string) => void
-
-  // Need actions
-  addNeed: (need: Omit<NeedItem, "id">) => void
-  updateNeed: (id: string, updates: Partial<NeedItem>) => void
-  deleteNeed: (id: string) => void
-  toggleNeedDone: (id: string) => void
-
-  // Activity actions
-  addActivityItem: (item: Omit<ActivityItem, "id">) => void
-  deleteActivityItem: (id: string) => void
-
-  // Service actions
-  updateService: (id: string, updates: Partial<Service>) => void
-
-  // Lead actions
-  addLead: (lead: Omit<Lead, "id">) => void
-  deleteLead: (id: string) => void
-
-  // Analytics actions
-  updateAnalytics: (updates: Partial<Analytics>) => void
-
-  // Content actions
-  addContentItem: (item: Omit<ContentItem, "id">) => void
-  moveContentItem: (id: string, column: ContentColumn) => void
-  approveContent: (id: string) => void
-  deleteContentItem: (id: string) => void
+// ── Supabase storage adapter ─────────────────────────────────────────────────
+const supabaseStorage = {
+  getItem: async (_name: string): Promise<string | null> => {
+    try {
+      const { data } = await supabase
+        .from("portal_state")
+        .select("data")
+        .eq("id", 1)
+        .single()
+      return data?.data ?? null
+    } catch {
+      return null
+    }
+  },
+  setItem: async (_name: string, value: string): Promise<void> => {
+    try {
+      await supabase
+        .from("portal_state")
+        .upsert({ id: 1, data: value, updated_at: new Date().toISOString() })
+    } catch {
+      // fallback silently
+    }
+  },
+  removeItem: async (_name: string): Promise<void> => {},
 }
 
+// ── Default seed data ─────────────────────────────────────────────────────────
 const defaultServices: Service[] = [
   { id: nanoid(), icon: "🌐", name: "Website Management", description: "Full website maintenance and updates", status: "waiting", statusLabel: "Waiting on Credentials", progress: 35 },
   { id: nanoid(), icon: "📍", name: "Google Business Profile", description: "GBP optimization and management", status: "waiting", statusLabel: "Waiting on GMB Access", progress: 20 },
@@ -78,41 +58,11 @@ const defaultTasks: Task[] = [
 ]
 
 const defaultNeeds: NeedItem[] = [
-  {
-    id: nanoid(), icon: "🗺️", title: "Grant Google Business Profile Access", priority: "urgent",
-    description: "Jawad needs manager access to your Google Business Profile to start GMB optimization and posting.",
-    blockingLabel: "Blocking: SEO & GMB setup",
-    howTo: "1. Go to business.google.com\n2. Click your business\n3. Go to Users in the left menu\n4. Click Add user\n5. Enter mjawadofficial46@gmail.com\n6. Select role: Manager\n7. Click Invite",
-    done: false,
-  },
-  {
-    id: nanoid(), icon: "🔐", title: "Share Website Credentials", priority: "urgent",
-    description: "Website login credentials are needed to begin web management, speed improvements, and technical SEO.",
-    blockingLabel: "Blocking: Web management & SEO",
-    howTo: "Use the Send Files tab and select Credentials category.\n\nNeeded:\n- Hosting dashboard login (cPanel)\n- WordPress or website builder login",
-    done: false,
-  },
-  {
-    id: nanoid(), icon: "📲", title: "Share Social Media Access", priority: "high",
-    description: "Admin access to Facebook and Instagram pages is required to begin posting and managing content.",
-    blockingLabel: "Blocking: Social media management",
-    howTo: "Option A: Go to Facebook Business Settings and add mjawadofficial46@gmail.com as Page Admin.\n\nOption B: Use Send Files tab to share credentials securely.",
-    done: false,
-  },
-  {
-    id: nanoid(), icon: "🎨", title: "Upload Brand Assets", priority: "high",
-    description: "Logo files, brand colors, and photos are needed to create consistent, on-brand content across all channels.",
-    blockingLabel: "Blocking: All content creation",
-    howTo: "Use Send Files tab and select Brand Assets.\n\nNeeded:\n- Logo PNG transparent background\n- Logo SVG vector\n- Brand color codes\n- Team or truck photos",
-    done: false,
-  },
-  {
-    id: nanoid(), icon: "📝", title: "Review Blog Post Draft", priority: "normal",
-    description: "The first blog post is ready for your review. Approve it so Jawad can publish it to your website.",
-    blockingLabel: "Blocking: Blog launch",
-    howTo: "Jawad will share the draft link via WhatsApp.\n\n1. Read through the full post\n2. Check facts and names are correct\n3. Reply: Approved or list changes\n4. Jawad will publish within 24 hours",
-    done: false,
-  },
+  { id: nanoid(), icon: "🗺️", title: "Grant Google Business Profile Access", priority: "urgent", description: "Jawad needs manager access to your Google Business Profile to start GMB optimization and posting.", blockingLabel: "Blocking: SEO & GMB setup", howTo: "1. Go to business.google.com\n2. Click your business\n3. Go to Users in the left menu\n4. Click Add user\n5. Enter mjawadofficial46@gmail.com\n6. Select role: Manager\n7. Click Invite", done: false },
+  { id: nanoid(), icon: "🔐", title: "Share Website Credentials", priority: "urgent", description: "Website login credentials are needed to begin web management, speed improvements, and technical SEO.", blockingLabel: "Blocking: Web management & SEO", howTo: "Use the Send Files tab and select Credentials category.\n\nNeeded:\n- Hosting dashboard login (cPanel)\n- WordPress or website builder login", done: false },
+  { id: nanoid(), icon: "📲", title: "Share Social Media Access", priority: "high", description: "Admin access to Facebook and Instagram pages is required to begin posting and managing content.", blockingLabel: "Blocking: Social media management", howTo: "Option A: Go to Facebook Business Settings and add mjawadofficial46@gmail.com as Page Admin.\n\nOption B: Use Send Files tab to share credentials securely.", done: false },
+  { id: nanoid(), icon: "🎨", title: "Upload Brand Assets", priority: "high", description: "Logo files, brand colors, and photos are needed to create consistent, on-brand content across all channels.", blockingLabel: "Blocking: All content creation", howTo: "Use Send Files tab and select Brand Assets.\n\nNeeded:\n- Logo PNG transparent background\n- Logo SVG vector\n- Brand color codes\n- Team or truck photos", done: false },
+  { id: nanoid(), icon: "📝", title: "Review Blog Post Draft", priority: "normal", description: "The first blog post is ready for your review. Approve it so Jawad can publish it to your website.", blockingLabel: "Blocking: Blog launch", howTo: "Jawad will share the draft link via WhatsApp.\n\n1. Read through the full post\n2. Check facts and names are correct\n3. Reply: Approved or list changes\n4. Jawad will publish within 24 hours", done: false },
 ]
 
 const defaultActivity: ActivityItem[] = [
@@ -132,10 +82,7 @@ const defaultLeads: Lead[] = [
 ]
 
 const defaultAnalytics: Analytics = {
-  gbpImpressions: 4820,
-  phoneCalls: 67,
-  directionRequests: 134,
-  gbpRating: 4.8,
+  gbpImpressions: 4820, phoneCalls: 67, directionRequests: 134, gbpRating: 4.8,
   websiteTraffic: [
     { month: "Jan", visits: 320 }, { month: "Feb", visits: 410 }, { month: "Mar", visits: 390 },
     { month: "Apr", visits: 520 }, { month: "May", visits: 680 }, { month: "Jun", visits: 750 },
@@ -158,12 +105,52 @@ const defaultContent: ContentItem[] = [
   { id: nanoid(), title: "Moving with Kids: A Survival Guide", description: "Blog post covering tips for families moving with children.", type: "Blog Post", column: "approval", date: "2026-06-10", approved: false },
 ]
 
+// ── Store interface ───────────────────────────────────────────────────────────
+interface PortalStore {
+  isAdminMode: boolean
+  setAdminMode: (v: boolean) => void
+  hasSeeded: boolean
+  services: Service[]
+  activity: ActivityItem[]
+  tasks: Task[]
+  needs: NeedItem[]
+  leads: Lead[]
+  analytics: Analytics
+  content: ContentItem[]
+
+  addTask: (task: Omit<Task, "id">) => void
+  addTasks: (tasks: Omit<Task, "id">[]) => void
+  updateTask: (id: string, updates: Partial<Task>) => void
+  deleteTask: (id: string) => void
+  toggleTaskStatus: (id: string) => void
+
+  addNeed: (need: Omit<NeedItem, "id">) => void
+  updateNeed: (id: string, updates: Partial<NeedItem>) => void
+  deleteNeed: (id: string) => void
+  toggleNeedDone: (id: string) => void
+
+  addActivityItem: (item: Omit<ActivityItem, "id">) => void
+  deleteActivityItem: (id: string) => void
+
+  updateService: (id: string, updates: Partial<Service>) => void
+
+  addLead: (lead: Omit<Lead, "id">) => void
+  deleteLead: (id: string) => void
+
+  updateAnalytics: (updates: Partial<Analytics>) => void
+
+  addContentItem: (item: Omit<ContentItem, "id">) => void
+  moveContentItem: (id: string, column: ContentColumn) => void
+  approveContent: (id: string) => void
+  deleteContentItem: (id: string) => void
+}
+
+// ── Store ─────────────────────────────────────────────────────────────────────
 export const usePortalStore = create<PortalStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       isAdminMode: false,
       setAdminMode: (v) => set({ isAdminMode: v }),
-
       hasSeeded: false,
       services: [],
       activity: [],
@@ -201,6 +188,7 @@ export const usePortalStore = create<PortalStore>()(
     }),
     {
       name: "portal-v1",
+      storage: createJSONStorage(() => supabaseStorage),
       onRehydrateStorage: () => (state) => {
         if (state && !state.hasSeeded) {
           state.services = defaultServices
@@ -216,3 +204,20 @@ export const usePortalStore = create<PortalStore>()(
     }
   )
 )
+
+// ── Real-time sync helper (call once in layout) ───────────────────────────────
+export function subscribeToRealtimeUpdates() {
+  const channel = supabase
+    .channel("portal_state_changes")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "portal_state" },
+      () => {
+        // Rehydrate store from Supabase when another user makes a change
+        usePortalStore.persist.rehydrate()
+      }
+    )
+    .subscribe()
+
+  return () => supabase.removeChannel(channel)
+}

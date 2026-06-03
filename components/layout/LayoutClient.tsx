@@ -2,13 +2,19 @@
 import { useState, useEffect } from "react"
 import { Sidebar } from "./Sidebar"
 import { Topbar } from "./Topbar"
+import { subscribeToRealtimeUpdates } from "@/store/portalStore"
 
 export function LayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false)
+  }, [])
+
+  // Subscribe to real-time Supabase updates
+  useEffect(() => {
+    const unsubscribe = subscribeToRealtimeUpdates()
+    return () => { unsubscribe() }
   }, [])
 
   return (

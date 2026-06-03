@@ -5,8 +5,18 @@ import { useToast } from "@/components/ui/Toast"
 import { DropZone } from "@/components/files/DropZone"
 import { FileQueue } from "@/components/files/FileQueue"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { supabase } from "@/lib/supabase"
 
 const CATEGORIES = ["Brand Assets", "Credentials", "Photos", "Documents", "Videos", "Other"]
+
+const categoryFolder: Record<string, string> = {
+  "Brand Assets": "brand-assets",
+  "Credentials": "credentials",
+  "Photos": "photos",
+  "Documents": "documents",
+  "Videos": "videos",
+  "Other": "other",
+}
 
 export default function SendFilesPage() {
   const [category, setCategory] = useState("Brand Assets")
@@ -28,30 +38,50 @@ export default function SendFilesPage() {
     setProgress((prev) => { const n = { ...prev }; delete n[name]; return n })
   }
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!files.length) return
     setSending(true)
-    const initial: Record<string, number> = {}
-    files.forEach((f) => { initial[f.name] = 0 })
-    setProgress(initial)
 
-    const start = Date.now()
-    const duration = 2000
-    const tick = setInterval(() => {
-      const elapsed = Date.now() - start
-      const pct = Math.min(100, Math.round((elapsed / duration) * 100))
-      const next: Record<string, number> = {}
-      files.forEach((f) => { next[f.name] = pct })
-      setProgress(next)
-      if (pct >= 100) {
-        clearInterval(tick)
-        setSending(false)
-        setFiles([])
-        setProgress({})
-        setNote("")
-        showToast("Files sent successfully")
+    const folder = categoryFolder[category]
+    const errors: string[] = []
+
+    for (const file of files) {
+      // Set progress to uploading
+      setProgress((prev) => ({ ...prev, [file.name]: 10 }))
+
+      const filePath = `${folder}/${Date.now()}_${file.name}`
+
+      const { error } = await supabase.storage
+        .from("portal-files")
+        .upload(filePath, file, { upsert: true })
+
+      if (error) {
+        errors.push(file.name)
+        setProgress((prev) => ({ ...prev, [file.name]: 0 }))
+      } else {
+        setProgress((prev) => ({ ...prev, [file.name]: 100 }))
       }
-    }, 50)
+    }
+
+    // If there's a note, save it as a text file alongside the uploads
+    if (note.trim()) {
+      const noteBlob = new Blob([note], { type: "text/plain" })
+      const noteFile = new File([noteBlob], `note_${Date.now()}.txt`)
+      await supabase.storage
+        .from("portal-files")
+        .upload(`${folder}/${noteFile.name}`, noteFile, { upsert: true })
+    }
+
+    setSending(false)
+
+    if (errors.length) {
+      showToast(`${errors.length} file(s) failed to upload`, "error")
+    } else {
+      setFiles([])
+      setProgress({})
+      setNote("")
+      showToast(`${files.length} file${files.length > 1 ? "s" : ""} sent successfully ✓`)
+    }
   }
 
   return (
@@ -105,7 +135,7 @@ export default function SendFilesPage() {
             disabled={!files.length || sending}
             className="w-full bg-blue-700 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {sending ? "Sending..." : `Send to Jawad${files.length > 0 ? ` (${files.length} file${files.length > 1 ? "s" : ""})` : ""}`}
+            {sending ? "Uploading..." : `Send to Jawad${files.length > 0 ? ` (${files.length} file${files.length > 1 ? "s" : ""})` : ""}`}
           </button>
         </div>
       </div>
