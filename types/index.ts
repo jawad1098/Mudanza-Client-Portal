@@ -47,9 +47,15 @@ export interface Lead {
   id: string
   date: string
   customerName: string
+  phone?: string
+  email?: string
+  moveDistance?: string
+  serviceLevel?: string
   moveSize: string
   from: string
   to: string
+  loadingDate?: string
+  loadingTime?: string
   estimatedValue: number
   status: LeadStatus
 }

@@ -107,7 +107,9 @@ interface PortalStore {
 
   updateService: (id: string, updates: Partial<Service>) => void
 
-  addLead: (lead: Omit<Lead, "id">) => void
+  setLeadsFromDB: (leads: Lead[]) => void
+  addLead: (lead: Lead) => void
+  updateLead: (id: string, updates: Partial<Lead>) => void
   deleteLead: (id: string) => void
 
   updateAnalytics: (updates: Partial<Analytics>) => void
@@ -150,7 +152,9 @@ export const usePortalStore = create<PortalStore>()(
 
       updateService: (id, updates) => set((s) => ({ services: s.services.map((sv) => sv.id === id ? { ...sv, ...updates } : sv) })),
 
-      addLead: (lead) => set((s) => ({ leads: [...s.leads, { ...lead, id: nanoid() }] })),
+      setLeadsFromDB: (leads) => set({ leads }),
+      addLead: (lead) => set((s) => ({ leads: [...s.leads, lead] })),
+      updateLead: (id, updates) => set((s) => ({ leads: s.leads.map((l) => l.id === id ? { ...l, ...updates } : l) })),
       deleteLead: (id) => set((s) => ({ leads: s.leads.filter((l) => l.id !== id) })),
 
       updateAnalytics: (updates) => set((s) => ({ analytics: { ...s.analytics, ...updates } })),

@@ -1,11 +1,14 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/Toast"
 import { DropZone } from "@/components/files/DropZone"
 import { FileQueue } from "@/components/files/FileQueue"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { supabase } from "@/lib/supabase"
+import { usePortalStore } from "@/store/portalStore"
+import { nanoid } from "nanoid"
+import { MessageSquare, Trash2 } from "lucide-react"
 
 const CATEGORIES = ["Brand Assets", "Credentials", "Photos", "Documents", "Videos", "Other"]
 
@@ -18,13 +21,37 @@ const categoryFolder: Record<string, string> = {
   "Other": "other",
 }
 
+interface NoteRecord {
+  id: string
+  category: string
+  note: string
+  created_at: string
+}
+
 export default function SendFilesPage() {
   const [category, setCategory] = useState("Brand Assets")
   const [files, setFiles] = useState<File[]>([])
   const [note, setNote] = useState("")
   const [progress, setProgress] = useState<Record<string, number>>({})
   const [sending, setSending] = useState(false)
+  const [notes, setNotes] = useState<NoteRecord[]>([])
+  const [loadingNotes, setLoadingNotes] = useState(false)
+  const isAdmin = usePortalStore((s) => s.isAdminMode)
   const { showToast } = useToast()
+
+  const loadNotes = async () => {
+    setLoadingNotes(true)
+    const { data } = await supabase
+      .from("portal_notes")
+      .select("*")
+      .order("created_at", { ascending: false })
+    setNotes((data ?? []) as NoteRecord[])
+    setLoadingNotes(false)
+  }
+
+  useEffect(() => {
+    if (isAdmin) loadNotes()
+  }, [isAdmin])
 
   const addFiles = (newFiles: File[]) => {
     setFiles((prev) => {
@@ -38,8 +65,13 @@ export default function SendFilesPage() {
     setProgress((prev) => { const n = { ...prev }; delete n[name]; return n })
   }
 
+  const deleteNote = async (id: string) => {
+    await supabase.from("portal_notes").delete().eq("id", id)
+    setNotes((prev) => prev.filter((n) => n.id !== id))
+  }
+
   const handleSend = async () => {
-    if (!files.length) return
+    if (!files.length && !note.trim()) return
     setSending(true)
 
     const folder = categoryFolder[category]
@@ -47,21 +79,16 @@ export default function SendFilesPage() {
 
     for (const file of files) {
       setProgress((prev) => ({ ...prev, [file.name]: 10 }))
-
       try {
-        // Convert File to ArrayBuffer for reliable browser upload
         const arrayBuffer = await file.arrayBuffer()
         const filePath = `${folder}/${Date.now()}_${file.name}`
-
         const { error } = await supabase.storage
           .from("portal-files")
           .upload(filePath, arrayBuffer, {
             upsert: true,
             contentType: file.type || "application/octet-stream",
           })
-
         if (error) {
-          console.error(`Upload failed for ${file.name}:`, error.message)
           errors.push(`${file.name}: ${error.message}`)
           setProgress((prev) => ({ ...prev, [file.name]: 0 }))
         } else {
@@ -69,19 +96,18 @@ export default function SendFilesPage() {
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error"
-        console.error(`Exception uploading ${file.name}:`, msg)
         errors.push(`${file.name}: ${msg}`)
         setProgress((prev) => ({ ...prev, [file.name]: 0 }))
       }
     }
 
-    // If there's a note, save it as a text file alongside the uploads
+    // Save note to Supabase database (not as a file)
     if (note.trim()) {
-      const noteBlob = new Blob([note], { type: "text/plain" })
-      const noteFile = new File([noteBlob], `note_${Date.now()}.txt`)
-      await supabase.storage
-        .from("portal-files")
-        .upload(`${folder}/${noteFile.name}`, noteFile, { upsert: true })
+      await supabase.from("portal_notes").insert({
+        id: nanoid(),
+        category,
+        note: note.trim(),
+      })
     }
 
     setSending(false)
@@ -92,13 +118,15 @@ export default function SendFilesPage() {
       setFiles([])
       setProgress({})
       setNote("")
-      showToast(`${files.length} file${files.length > 1 ? "s" : ""} sent successfully ✓`)
+      const count = files.length
+      showToast(`${count > 0 ? `${count} file${count > 1 ? "s" : ""} sent` : "Note sent"} successfully ✓`)
     }
   }
 
   return (
     <div>
       <PageHeader title="Send Files" description="Upload files securely to Jawad" />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">File Category</p>
@@ -144,13 +172,53 @@ export default function SendFilesPage() {
 
           <button
             onClick={handleSend}
-            disabled={!files.length || sending}
+            disabled={(!files.length && !note.trim()) || sending}
             className="w-full bg-blue-700 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {sending ? "Uploading..." : `Send to Jawad${files.length > 0 ? ` (${files.length} file${files.length > 1 ? "s" : ""})` : ""}`}
+            {sending ? "Sending..." : `Send to Jawad${files.length > 0 ? ` (${files.length} file${files.length > 1 ? "s" : ""})` : ""}`}
           </button>
         </div>
       </div>
+
+      {/* Admin: Notes inbox */}
+      {isAdmin && (
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+              <MessageSquare size={16} className="text-blue-600" /> Notes from Gabriel
+            </h2>
+            <button onClick={loadNotes} className="text-xs text-blue-600 hover:underline">Refresh</button>
+          </div>
+
+          {loadingNotes ? (
+            <p className="text-sm text-gray-400">Loading notes…</p>
+          ) : notes.length === 0 ? (
+            <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center">
+              <p className="text-sm text-gray-400">No notes yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {notes.map((n) => (
+                <div key={n.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 group">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{n.category}</span>
+                      <span className="text-xs text-gray-400">{new Date(n.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.note}</p>
+                  </div>
+                  <button
+                    onClick={() => deleteNote(n.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
