@@ -11,7 +11,7 @@ import { ImportCSVModal } from "@/components/working-on/ImportCSVModal"
 import { fetchTasksFromDB } from "@/lib/taskSync"
 import type { Task, TaskWeek } from "@/types"
 
-const WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
+const STANDARD_WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -136,18 +136,25 @@ export default function WorkingOnPage() {
           </div>
         ) : (
           <>
-            {WEEKS.map((week) => {
-              const weekTasks = filtered.filter((t) => t.week === week)
-              if (!weekTasks.length) return null
-              return (
-                <div key={week}>
-                  <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2 mt-4 first:mt-0 px-3">
-                    {week} — {format(now, "MMMM yyyy")}
-                  </p>
-                  {weekTasks.map((t) => <TaskRow key={t.id} task={t} />)}
-                </div>
-              )
-            })}
+            {(() => {
+              // Collect all unique weeks from filtered tasks, sorted
+              const allWeeks = Array.from(new Set(filtered.map((t) => t.week))).sort((a, b) => {
+                const na = parseInt(a.replace(/\D/g, "")) || 0
+                const nb = parseInt(b.replace(/\D/g, "")) || 0
+                return na - nb
+              })
+              return allWeeks.map((week) => {
+                const weekTasks = filtered.filter((t) => t.week === week)
+                return (
+                  <div key={week}>
+                    <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2 mt-4 first:mt-0 px-3">
+                      {week} — {format(now, "MMMM yyyy")}
+                    </p>
+                    {weekTasks.map((t) => <TaskRow key={t.id} task={t} />)}
+                  </div>
+                )
+              })
+            })()}
             {filtered.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-12">No tasks match this filter.</p>
             )}

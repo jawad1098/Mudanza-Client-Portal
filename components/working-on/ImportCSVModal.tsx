@@ -63,10 +63,17 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       if (!lines[i].trim()) continue
       const cols = splitCSVRow(lines[i])
       if (!cols[taskIdx]) continue
+      // Normalise week: "Week 1" / "week1" / "1" / "W1" → "W1"
+      const rawWeek = (cols[weekIdx] || "").trim()
+      const weekNum = rawWeek.replace(/[^0-9]/g, "")
+      const week: TaskWeek = (["W1","W2","W3","W4"].includes(rawWeek.toUpperCase())
+        ? rawWeek.toUpperCase()
+        : weekNum ? `W${weekNum}` : "W1") as TaskWeek
+
       rows.push({
         name: cols[taskIdx] || "",
         category: (cols[catIdx] as TaskCategory) || "Other",
-        week: (cols[weekIdx] as TaskWeek) || "W1",
+        week,
         date: cols[dateIdx] || "",
       })
     }
@@ -89,9 +96,15 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     if (file) handleFile(file)
   }
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!parsed) return
-    addTasks(parsed.map((r) => ({ ...r, status: "pending" })))
+    const tasks = parsed.map((r) => ({ ...r, status: "pending" as const }))
+    addTasks(tasks)
+    // Sync to Supabase — get the tasks with their generated IDs
+    const { tasks: allTasks } = usePortalStore.getState()
+    const justAdded = allTasks.slice(-tasks.length)
+    const { upsertTasksToDB } = await import("@/lib/taskSync")
+    await upsertTasksToDB(justAdded)
     setParsed(null)
     onClose()
     showToast(`${parsed.length} tasks imported from CSV`)
