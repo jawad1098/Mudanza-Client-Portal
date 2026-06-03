@@ -2,7 +2,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, CheckSquare, AlertCircle, Upload, Phone, TrendingUp, BarChart2, Layout, MessageCircle, X, Pencil, Check } from "lucide-react"
+import { LayoutDashboard, CheckSquare, AlertCircle, Upload, Phone, TrendingUp, BarChart2, Layout, MessageCircle, FolderOpen, X, Pencil, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePortalStore } from "@/store/portalStore"
 
@@ -19,6 +19,7 @@ const nav = [
     section: "TOOLS",
     items: [
       { href: "/send-files", label: "Send Files", icon: Upload },
+      { href: "/documents", label: "Documents", icon: FolderOpen },
       { href: "/book-a-call", label: "Book a Call", icon: Phone },
     ],
   },
