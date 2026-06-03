@@ -19,7 +19,6 @@ interface ImportCSVModalProps {
 }
 
 export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
-  const addTasks = usePortalStore((s) => s.addTasks)
   const { showToast } = useToast()
   const [parsed, setParsed] = useState<ParsedRow[] | null>(null)
   const [error, setError] = useState("")
