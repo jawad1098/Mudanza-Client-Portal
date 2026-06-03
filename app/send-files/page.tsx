@@ -115,11 +115,24 @@ export default function SendFilesPage() {
     if (errors.length) {
       showToast(`Upload failed: ${errors[0]}`, "error")
     } else {
+      const count = files.length
+      const savedNote = note.trim()
+
+      // Build WhatsApp pre-written message
+      let waMessage = `Hi Jawad! 👋\n\nI just uploaded files to the client portal.\n\n📁 *Category:* ${category}\n📎 *Files:* ${count > 0 ? `${count} file${count > 1 ? "s" : ""}` : "No files"}`
+      if (savedNote) {
+        waMessage += `\n\n📝 *Note:*\n${savedNote}`
+      }
+      waMessage += `\n\n— Gabriel`
+
       setFiles([])
       setProgress({})
       setNote("")
-      const count = files.length
       showToast(`${count > 0 ? `${count} file${count > 1 ? "s" : ""} sent` : "Note sent"} successfully ✓`)
+
+      // Open WhatsApp with pre-written message
+      const waUrl = `https://wa.me/923159782971?text=${encodeURIComponent(waMessage)}`
+      window.open(waUrl, "_blank")
     }
   }
 
