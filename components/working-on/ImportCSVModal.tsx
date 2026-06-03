@@ -98,13 +98,15 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
 
   const handleConfirm = async () => {
     if (!parsed) return
-    const tasks = parsed.map((r) => ({ ...r, status: "pending" as const }))
-    addTasks(tasks)
-    // Sync to Supabase — get the tasks with their generated IDs
-    const { tasks: allTasks } = usePortalStore.getState()
-    const justAdded = allTasks.slice(-tasks.length)
+    // Generate IDs here so we can send the exact same tasks to both store and Supabase
+    const { nanoid } = await import("nanoid")
     const { upsertTasksToDB } = await import("@/lib/taskSync")
-    await upsertTasksToDB(justAdded)
+    const tasksWithIds = parsed.map((r) => ({ ...r, id: nanoid(), status: "pending" as const }))
+    // Add to store (store's addTasks generates its own IDs, so use setTasksFromDB to merge)
+    const existing = usePortalStore.getState().tasks
+    usePortalStore.getState().setTasksFromDB([...existing, ...tasksWithIds])
+    // Sync all to Supabase
+    await upsertTasksToDB(tasksWithIds)
     setParsed(null)
     onClose()
     showToast(`${parsed.length} tasks imported from CSV`)
