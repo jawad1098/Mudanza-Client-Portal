@@ -1,37 +1,9 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { nanoid } from "nanoid"
-import { supabase } from "@/lib/supabase"
 import type {
-  Task, NeedItem, ActivityItem, Service, Lead, Analytics, ContentItem,
-  ContentColumn,
+  Task, NeedItem, ActivityItem, Service, Lead, Analytics, ContentItem, ContentColumn,
 } from "@/types"
-
-// ── Supabase storage adapter ─────────────────────────────────────────────────
-const supabaseStorage = {
-  getItem: async (_name: string): Promise<string | null> => {
-    try {
-      const { data } = await supabase
-        .from("portal_state")
-        .select("data")
-        .eq("id", 1)
-        .single()
-      return data?.data ?? null
-    } catch {
-      return null
-    }
-  },
-  setItem: async (_name: string, value: string): Promise<void> => {
-    try {
-      await supabase
-        .from("portal_state")
-        .upsert({ id: 1, data: value, updated_at: new Date().toISOString() })
-    } catch {
-      // fallback silently
-    }
-  },
-  removeItem: async (_name: string): Promise<void> => {},
-}
 
 // ── Default seed data ─────────────────────────────────────────────────────────
 const defaultServices: Service[] = [
@@ -145,7 +117,7 @@ interface PortalStore {
   deleteContentItem: (id: string) => void
 }
 
-// ── Store ─────────────────────────────────────────────────────────────────────
+// ── Store (localStorage — instant UI, Supabase sync handled separately) ───────
 export const usePortalStore = create<PortalStore>()(
   persist(
     (set) => ({
@@ -188,7 +160,7 @@ export const usePortalStore = create<PortalStore>()(
     }),
     {
       name: "portal-v1",
-      storage: createJSONStorage(() => supabaseStorage),
+      storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
         if (state && !state.hasSeeded) {
           state.services = defaultServices
@@ -204,20 +176,3 @@ export const usePortalStore = create<PortalStore>()(
     }
   )
 )
-
-// ── Real-time sync helper (call once in layout) ───────────────────────────────
-export function subscribeToRealtimeUpdates() {
-  const channel = supabase
-    .channel("portal_state_changes")
-    .on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "portal_state" },
-      () => {
-        // Rehydrate store from Supabase when another user makes a change
-        usePortalStore.persist.rehydrate()
-      }
-    )
-    .subscribe()
-
-  return () => supabase.removeChannel(channel)
-}
