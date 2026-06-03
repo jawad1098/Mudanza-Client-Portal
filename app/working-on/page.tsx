@@ -9,9 +9,8 @@ import { TaskRow } from "@/components/working-on/TaskRow"
 import { AddTaskModal } from "@/components/working-on/AddTaskModal"
 import { ImportCSVModal } from "@/components/working-on/ImportCSVModal"
 import { fetchTasksFromDB } from "@/lib/taskSync"
-import type { Task, TaskWeek } from "@/types"
+import type { Task } from "@/types"
 
-const STANDARD_WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
