@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { Plus, Upload, Download } from "lucide-react"
-import { isToday, isThisWeek, isThisMonth, parseISO, format } from "date-fns"
+import { isToday, isThisWeek, isThisMonth, parseISO, isValid, format } from "date-fns"
 import { usePortalStore } from "@/store/portalStore"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { FilterBar } from "@/components/working-on/FilterBar"
@@ -61,10 +61,12 @@ export default function WorkingOnPage() {
       if (filter === "All") return true
       if (filter === "Completed") return t.status === "done"
       if (filter === "Pending") return t.status === "pending"
-      // Date-based filters — safely skip tasks with missing/invalid dates
+      // Date-based filters — support ISO (YYYY-MM-DD) and any other parseable format
       if (!t.date) return false
       try {
-        const d = parseISO(t.date)
+        let d = parseISO(t.date)
+        if (!isValid(d)) d = new Date(t.date)
+        if (!isValid(d)) return false
         if (filter === "Today") return isToday(d)
         if (filter === "This Week") return isThisWeek(d, { weekStartsOn: 1 })
         if (filter === "This Month") return isThisMonth(d)
@@ -80,7 +82,9 @@ export default function WorkingOnPage() {
   const handleExport = () => {
     const exportTasks = tasks.filter((t) => {
       try {
-        const d = parseISO(t.date)
+        let d = parseISO(t.date)
+        if (!isValid(d)) d = new Date(t.date)
+        if (!isValid(d)) return false
         const matchMonth = d.getMonth() === exportMonth && d.getFullYear() === exportYear
         const matchStatus = exportFilter === "all" || t.status === "done"
         return matchMonth && matchStatus
