@@ -1,9 +1,10 @@
 "use client"
-import { Trash2 } from "lucide-react"
+import { useState } from "react"
+import { Trash2, Pencil, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePortalStore } from "@/store/portalStore"
 import { upsertTaskToDB, deleteTaskFromDB } from "@/lib/taskSync"
-import type { Task } from "@/types"
+import type { Task, TaskCategory, TaskWeek } from "@/types"
 
 const categoryColors: Record<string, string> = {
   SEO: "bg-blue-50 text-blue-700",
@@ -15,6 +16,9 @@ const categoryColors: Record<string, string> = {
   Other: "bg-gray-100 text-gray-600",
 }
 
+const CATEGORIES: TaskCategory[] = ["SEO", "GMB", "Social", "Blog", "Technical", "Analytics", "Other"]
+const WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
+
 interface TaskRowProps {
   task: Task
 }
@@ -22,27 +26,103 @@ interface TaskRowProps {
 export function TaskRow({ task }: TaskRowProps) {
   const isAdmin = usePortalStore((s) => s.isAdminMode)
   const toggleTaskStatus = usePortalStore((s) => s.toggleTaskStatus)
+  const updateTask = usePortalStore((s) => s.updateTask)
   const deleteTask = usePortalStore((s) => s.deleteTask)
+
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(task.name)
+  const [editCategory, setEditCategory] = useState(task.category)
+  const [editWeek, setEditWeek] = useState(task.week)
+  const [editDate, setEditDate] = useState(task.date)
+
+  const handleSaveEdit = () => {
+    const updated = { ...task, name: editName, category: editCategory, week: editWeek, date: editDate }
+    updateTask(task.id, { name: editName, category: editCategory, week: editWeek, date: editDate })
+    upsertTaskToDB(updated)
+    setEditing(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditName(task.name)
+    setEditCategory(task.category)
+    setEditWeek(task.week)
+    setEditDate(task.date)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-blue-50 border border-blue-100">
+        <input
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          className="flex-1 text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+          autoFocus
+        />
+        <select
+          value={editCategory}
+          onChange={(e) => setEditCategory(e.target.value as TaskCategory)}
+          className="text-xs border border-gray-200 rounded px-1 py-1 focus:outline-none bg-white"
+        >
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select
+          value={editWeek}
+          onChange={(e) => setEditWeek(e.target.value as TaskWeek)}
+          className="text-xs border border-gray-200 rounded px-1 py-1 focus:outline-none bg-white w-14"
+        >
+          {WEEKS.map((w) => <option key={w} value={w}>{w}</option>)}
+        </select>
+        <input
+          type="date"
+          value={editDate}
+          onChange={(e) => setEditDate(e.target.value)}
+          className="text-xs border border-gray-200 rounded px-1 py-1 focus:outline-none bg-white"
+        />
+        <button onClick={handleSaveEdit} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+          <Check size={13} />
+        </button>
+        <button onClick={handleCancelEdit} className="p-1 bg-white border border-gray-200 rounded hover:bg-gray-50 text-gray-500">
+          <X size={13} />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 group transition-colors">
-      <button
-        onClick={() => {
-          toggleTaskStatus(task.id)
-          const newStatus = task.status === "done" ? "pending" : "done"
-          upsertTaskToDB({ ...task, status: newStatus as Task["status"] })
-        }}
-        className={cn(
-          "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors",
-          task.status === "done" ? "bg-blue-600 border-blue-600" : "border-gray-300 hover:border-blue-400"
-        )}
-      >
-        {task.status === "done" && (
-          <svg viewBox="0 0 10 8" className="w-2.5 h-2.5 text-white fill-current">
-            <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </button>
+      {/* Only admin can toggle status */}
+      {isAdmin ? (
+        <button
+          onClick={() => {
+            toggleTaskStatus(task.id)
+            const newStatus = task.status === "done" ? "pending" : "done"
+            upsertTaskToDB({ ...task, status: newStatus as Task["status"] })
+          }}
+          className={cn(
+            "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors",
+            task.status === "done" ? "bg-blue-600 border-blue-600" : "border-gray-300 hover:border-blue-400"
+          )}
+        >
+          {task.status === "done" && (
+            <svg viewBox="0 0 10 8" className="w-2.5 h-2.5 text-white fill-current">
+              <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      ) : (
+        // Client sees a read-only indicator
+        <div className={cn(
+          "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center",
+          task.status === "done" ? "bg-blue-600 border-blue-600" : "border-gray-300"
+        )}>
+          {task.status === "done" && (
+            <svg viewBox="0 0 10 8" className="w-2.5 h-2.5 text-white fill-current">
+              <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
+      )}
 
       <span className={cn("flex-1 text-sm", task.status === "done" ? "line-through text-gray-400" : "text-gray-700")}>
         {task.name}
@@ -63,9 +143,14 @@ export function TaskRow({ task }: TaskRowProps) {
       </span>
 
       {isAdmin && (
-        <button onClick={() => { deleteTask(task.id); deleteTaskFromDB(task.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500">
-          <Trash2 size={14} />
-        </button>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => setEditing(true)} className="p-1 hover:bg-blue-50 rounded text-gray-300 hover:text-blue-500">
+            <Pencil size={13} />
+          </button>
+          <button onClick={() => { deleteTask(task.id); deleteTaskFromDB(task.id) }} className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500">
+            <Trash2 size={14} />
+          </button>
+        </div>
       )}
     </div>
   )
