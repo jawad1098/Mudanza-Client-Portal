@@ -23,7 +23,8 @@ export async function fetchTasksFromDB(): Promise<Task[]> {
 }
 
 export async function upsertTaskToDB(task: Task): Promise<void> {
-  const { error } = await supabase.from("portal_tasks").upsert({
+  console.log("[taskSync] upserting single task →", task.id, task.name)
+  const { error, data } = await supabase.from("portal_tasks").upsert({
     id: task.id,
     name: task.name,
     category: task.category,
@@ -31,11 +32,16 @@ export async function upsertTaskToDB(task: Task): Promise<void> {
     date: task.date,
     status: task.status,
   })
-  if (error) console.error("Failed to upsert task:", error.message)
+  if (error) {
+    console.error("[taskSync] single upsert failed:", error.message, error)
+  } else {
+    console.log("[taskSync] single upsert success:", data)
+  }
 }
 
 export async function upsertTasksToDB(tasks: Task[]): Promise<void> {
-  const { error } = await supabase.from("portal_tasks").upsert(
+  console.log("[taskSync] upserting tasks →", tasks.length, "rows")
+  const { error, data } = await supabase.from("portal_tasks").upsert(
     tasks.map((t) => ({
       id: t.id,
       name: t.name,
@@ -45,7 +51,11 @@ export async function upsertTasksToDB(tasks: Task[]): Promise<void> {
       status: t.status,
     }))
   )
-  if (error) console.error("Failed to upsert tasks:", error.message)
+  if (error) {
+    console.error("[taskSync] upsert failed:", error.message, error)
+  } else {
+    console.log("[taskSync] upsert success:", data)
+  }
 }
 
 export async function deleteTaskFromDB(id: string): Promise<void> {

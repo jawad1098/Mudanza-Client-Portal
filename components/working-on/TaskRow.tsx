@@ -2,6 +2,7 @@
 import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePortalStore } from "@/store/portalStore"
+import { upsertTaskToDB, deleteTaskFromDB } from "@/lib/taskSync"
 import type { Task } from "@/types"
 
 const categoryColors: Record<string, string> = {
@@ -26,7 +27,11 @@ export function TaskRow({ task }: TaskRowProps) {
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 group transition-colors">
       <button
-        onClick={() => toggleTaskStatus(task.id)}
+        onClick={() => {
+          toggleTaskStatus(task.id)
+          const newStatus = task.status === "done" ? "pending" : "done"
+          upsertTaskToDB({ ...task, status: newStatus as Task["status"] })
+        }}
         className={cn(
           "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors",
           task.status === "done" ? "bg-blue-600 border-blue-600" : "border-gray-300 hover:border-blue-400"
@@ -58,7 +63,7 @@ export function TaskRow({ task }: TaskRowProps) {
       </span>
 
       {isAdmin && (
-        <button onClick={() => deleteTask(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500">
+        <button onClick={() => { deleteTask(task.id); deleteTaskFromDB(task.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500">
           <Trash2 size={14} />
         </button>
       )}

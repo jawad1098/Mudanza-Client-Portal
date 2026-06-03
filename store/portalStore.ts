@@ -4,7 +4,6 @@ import { nanoid } from "nanoid"
 import type {
   Task, NeedItem, ActivityItem, Service, Lead, Analytics, ContentItem, ContentColumn,
 } from "@/types"
-import { upsertTaskToDB, upsertTasksToDB, deleteTaskFromDB } from "@/lib/taskSync"
 
 // ── Default seed data ─────────────────────────────────────────────────────────
 const defaultServices: Service[] = [
@@ -135,36 +134,11 @@ export const usePortalStore = create<PortalStore>()(
       content: [],
 
       setTasksFromDB: (tasks) => set({ tasks }),
-      addTask: (task) => {
-        const newTask = { ...task, id: nanoid() }
-        set((s) => ({ tasks: [...s.tasks, newTask] }))
-        upsertTaskToDB(newTask)
-      },
-      addTasks: (tasks) => {
-        const newTasks = tasks.map((t) => ({ ...t, id: nanoid() }))
-        set((s) => ({ tasks: [...s.tasks, ...newTasks] }))
-        upsertTasksToDB(newTasks)
-      },
-      updateTask: (id, updates) => {
-        set((s) => {
-          const updated = s.tasks.map((t) => t.id === id ? { ...t, ...updates } : t)
-          const task = updated.find((t) => t.id === id)
-          if (task) upsertTaskToDB(task)
-          return { tasks: updated }
-        })
-      },
-      deleteTask: (id) => {
-        set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }))
-        deleteTaskFromDB(id)
-      },
-      toggleTaskStatus: (id) => {
-        set((s) => {
-          const updated: Task[] = s.tasks.map((t) => t.id === id ? { ...t, status: (t.status === "done" ? "pending" : "done") as Task["status"] } : t)
-          const task = updated.find((t) => t.id === id)
-          if (task) upsertTaskToDB(task)
-          return { tasks: updated }
-        })
-      },
+      addTask: (task) => set((s) => ({ tasks: [...s.tasks, { ...task, id: nanoid() }] })),
+      addTasks: (tasks) => set((s) => ({ tasks: [...s.tasks, ...tasks.map((t) => ({ ...t, id: nanoid() }))] })),
+      updateTask: (id, updates) => set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, ...updates } : t) })),
+      deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+      toggleTaskStatus: (id) => set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, status: (t.status === "done" ? "pending" : "done") as Task["status"] } : t) })),
 
       addNeed: (need) => set((s) => ({ needs: [...s.needs, { ...need, id: nanoid() }] })),
       updateNeed: (id, updates) => set((s) => ({ needs: s.needs.map((n) => n.id === id ? { ...n, ...updates } : n) })),
@@ -199,8 +173,6 @@ export const usePortalStore = create<PortalStore>()(
           state.analytics = defaultAnalytics
           state.content = defaultContent
           state.hasSeeded = true
-          // Seed default tasks into Supabase on first load
-          upsertTasksToDB(defaultTasks)
         }
       },
     }

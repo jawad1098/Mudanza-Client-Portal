@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import { usePortalStore } from "@/store/portalStore"
 import { useToast } from "@/components/ui/Toast"
+import { upsertTasksToDB } from "@/lib/taskSync"
 import type { TaskCategory, TaskWeek } from "@/types"
 
 interface RowData {
@@ -29,10 +30,16 @@ export function AddTaskModal({ isOpen, onClose }: AddTaskModalProps) {
     setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const valid = rows.filter((r) => r.name.trim())
     if (!valid.length) return
-    addTasks(valid.map((r) => ({ ...r, status: "pending" })))
+    const tasksToAdd = valid.map((r) => ({ ...r, status: "pending" as const }))
+    addTasks(tasksToAdd)
+    // Get the tasks that were just added from the store to capture their generated IDs
+    const { tasks } = usePortalStore.getState()
+    const justAdded = tasks.slice(-valid.length)
+    console.log("[AddTaskModal] saving to Supabase:", justAdded)
+    await upsertTasksToDB(justAdded)
     setRows([emptyRow(), emptyRow(), emptyRow()])
     onClose()
     showToast(`${valid.length} task${valid.length > 1 ? "s" : ""} added`)
