@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { MessageCircle, Mail, Pencil, Check, X, Plus, Trash2 } from "lucide-react"
+import { MessageCircle, Mail, Pencil, Check, X, Plus } from "lucide-react"
 import { usePortalStore } from "@/store/portalStore"
 
 export function ProfileCard() {
