@@ -59,11 +59,16 @@ export default function WorkingOnPage() {
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
       if (filter === "All") return true
-      if (filter === "Today") return isToday(parseISO(t.date))
-      if (filter === "This Week") return isThisWeek(parseISO(t.date), { weekStartsOn: 1 })
-      if (filter === "This Month") return isThisMonth(parseISO(t.date))
       if (filter === "Completed") return t.status === "done"
       if (filter === "Pending") return t.status === "pending"
+      // Date-based filters — safely skip tasks with missing/invalid dates
+      if (!t.date) return false
+      try {
+        const d = parseISO(t.date)
+        if (filter === "Today") return isToday(d)
+        if (filter === "This Week") return isThisWeek(d, { weekStartsOn: 1 })
+        if (filter === "This Month") return isThisMonth(d)
+      } catch { return false }
       return true
     })
   }, [tasks, filter])
