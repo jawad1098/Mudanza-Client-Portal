@@ -3,6 +3,7 @@ import { useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePortalStore } from "@/store/portalStore"
+import { upsertNeedToDB, deleteNeedFromDB } from "@/lib/needsSync"
 import { HowToModal } from "./HowToModal"
 import { AddNeedModal } from "./AddNeedModal"
 import type { NeedItem } from "@/types"
@@ -43,7 +44,7 @@ export function NeedCard({ need }: NeedCardProps) {
               <button onClick={() => setShowEdit(true)} className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600">
                 <Pencil size={13} />
               </button>
-              <button onClick={() => deleteNeed(need.id)} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
+              <button onClick={() => { deleteNeed(need.id); deleteNeedFromDB(need.id) }} className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -65,6 +66,7 @@ export function NeedCard({ need }: NeedCardProps) {
           <button
             onClick={() => {
               toggleNeedDone(need.id)
+              upsertNeedToDB({ ...need, done: !need.done })
               if (!need.done) {
                 addActivityItem({
                   text: `<strong>Requirement fulfilled</strong> — ${need.title}`,

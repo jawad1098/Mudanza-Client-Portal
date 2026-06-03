@@ -57,9 +57,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <h1 className="font-semibold text-sm text-gray-900">{title}</h1>
       </div>
       {isAdminMode && (
-        <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded">
-          Admin Mode
-        </span>
+        <button onClick={() => setAdminMode(false)} className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded hover:bg-blue-200 transition-colors">
+          Admin Mode ✕
+        </button>
       )}
     </header>
   )

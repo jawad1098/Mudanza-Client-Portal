@@ -1,15 +1,32 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Plus } from "lucide-react"
 import { usePortalStore } from "@/store/portalStore"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { NeedCard } from "@/components/needs/NeedCard"
 import { AddNeedModal } from "@/components/needs/AddNeedModal"
+import { fetchNeedsFromDB, upsertNeedsToDB } from "@/lib/needsSync"
 
 export default function NeedsPage() {
   const needs = usePortalStore((s) => s.needs)
   const isAdmin = usePortalStore((s) => s.isAdminMode)
+  const setNeedsFromDB = usePortalStore((s) => s.setNeedsFromDB)
   const [showAdd, setShowAdd] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  const loadNeeds = useCallback(async () => {
+    setLoading(true)
+    const dbNeeds = await fetchNeedsFromDB()
+    if (dbNeeds.length > 0) {
+      setNeedsFromDB(dbNeeds)
+    } else if (needs.length > 0) {
+      // First time — seed defaults into Supabase
+      await upsertNeedsToDB(needs)
+    }
+    setLoading(false)
+  }, [setNeedsFromDB, needs.length])
+
+  useEffect(() => { loadNeeds() }, [loadNeeds])
 
   const done = needs.filter((n) => n.done).length
   const total = needs.length
@@ -37,11 +54,16 @@ export default function NeedsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {needs.map((n) => (
-          <NeedCard key={n.id} need={n} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="py-16 text-center">
+          <div className="inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-400 mt-2">Loading…</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {needs.map((n) => <NeedCard key={n.id} need={n} />)}
+        </div>
+      )}
 
       <AddNeedModal isOpen={showAdd} onClose={() => setShowAdd(false)} />
     </div>

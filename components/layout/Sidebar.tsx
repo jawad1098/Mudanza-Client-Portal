@@ -51,8 +51,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const clientConfig = usePortalStore((s) => s.clientConfig)
   const updateClientConfig = usePortalStore((s) => s.updateClientConfig)
 
+  const setAdminMode = usePortalStore((s) => s.setAdminMode)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(clientConfig)
+  const [tapCount, setTapCount] = useState(0)
 
   const pendingTasks = tasks.filter((t) => t.status === "pending").length
   const unmetNeeds = needs.filter((n) => !n.done).length
@@ -61,6 +63,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     if (badge === "tasks") return pendingTasks > 0 ? pendingTasks : null
     if (badge === "needs") return unmetNeeds > 0 ? unmetNeeds : null
     return null
+  }
+
+  const handleLogoTap = () => {
+    const next = tapCount + 1
+    setTapCount(next)
+    if (next >= 5) {
+      setAdminMode(!isAdmin)
+      setTapCount(0)
+    } else {
+      // Reset after 2 seconds of no taps
+      setTimeout(() => setTapCount(0), 2000)
+    }
   }
 
   const startEdit = () => { setDraft(clientConfig); setEditing(true) }
@@ -129,7 +143,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         ) : (
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-700 flex items-center justify-center text-white font-bold text-sm shrink-0">
+              <div
+                className="w-10 h-10 rounded-xl bg-blue-700 flex items-center justify-center text-white font-bold text-sm shrink-0 cursor-pointer select-none"
+                onClick={handleLogoTap}
+              >
                 {clientConfig.initials}
               </div>
               <div>

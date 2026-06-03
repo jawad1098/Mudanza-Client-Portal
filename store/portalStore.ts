@@ -121,6 +121,7 @@ interface PortalStore {
   deleteTask: (id: string) => void
   toggleTaskStatus: (id: string) => void
 
+  setNeedsFromDB: (needs: NeedItem[]) => void
   addNeed: (need: Omit<NeedItem, "id">) => void
   updateNeed: (id: string, updates: Partial<NeedItem>) => void
   deleteNeed: (id: string) => void
@@ -174,6 +175,7 @@ export const usePortalStore = create<PortalStore>()(
       deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
       toggleTaskStatus: (id) => set((s) => ({ tasks: s.tasks.map((t) => t.id === id ? { ...t, status: (t.status === "done" ? "pending" : "done") as Task["status"] } : t) })),
 
+      setNeedsFromDB: (needs) => set({ needs }),
       addNeed: (need) => set((s) => ({ needs: [...s.needs, { ...need, id: nanoid() }] })),
       updateNeed: (id, updates) => set((s) => ({ needs: s.needs.map((n) => n.id === id ? { ...n, ...updates } : n) })),
       deleteNeed: (id) => set((s) => ({ needs: s.needs.filter((n) => n.id !== id) })),

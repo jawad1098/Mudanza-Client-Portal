@@ -2,7 +2,9 @@
 import { useState } from "react"
 import { Modal } from "@/components/ui/Modal"
 import { usePortalStore } from "@/store/portalStore"
+import { upsertNeedToDB } from "@/lib/needsSync"
 import { useToast } from "@/components/ui/Toast"
+import { nanoid } from "nanoid"
 import type { NeedPriority } from "@/types"
 
 interface AddNeedModalProps {
@@ -34,13 +36,16 @@ export function AddNeedModal({ isOpen, onClose, initial }: AddNeedModalProps) {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) return
     if (initial?.id) {
       updateNeed(initial.id, { ...form, done: false })
+      await upsertNeedToDB({ id: initial.id, ...form, done: false })
       showToast("Need updated")
     } else {
+      const id = nanoid()
       addNeed({ ...form, done: false })
+      await upsertNeedToDB({ id, ...form, done: false })
       showToast("Need added")
     }
     onClose()
