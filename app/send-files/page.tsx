@@ -130,6 +130,13 @@ export default function SendFilesPage() {
       setNote("")
       showToast(`${count > 0 ? `${count} file${count > 1 ? "s" : ""} sent` : "Note sent"} successfully ✓`)
 
+      // Auto-log activity
+      usePortalStore.getState().addActivityItem({
+        text: `<strong>Files uploaded</strong> — ${count > 0 ? `${count} file${count > 1 ? "s" : ""} in ${category}` : `Note in ${category}`}${savedNote ? `: "${savedNote.slice(0, 60)}${savedNote.length > 60 ? "…" : ""}"` : ""}`,
+        time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        color: "teal",
+      })
+
       // Open WhatsApp with pre-written message
       const waUrl = `https://wa.me/923159782971?text=${encodeURIComponent(waMessage)}`
       window.open(waUrl, "_blank")

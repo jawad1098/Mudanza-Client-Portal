@@ -20,6 +20,7 @@ interface NeedCardProps {
 export function NeedCard({ need }: NeedCardProps) {
   const isAdmin = usePortalStore((s) => s.isAdminMode)
   const toggleNeedDone = usePortalStore((s) => s.toggleNeedDone)
+  const addActivityItem = usePortalStore((s) => s.addActivityItem)
   const deleteNeed = usePortalStore((s) => s.deleteNeed)
   const [showHowTo, setShowHowTo] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
@@ -62,7 +63,16 @@ export function NeedCard({ need }: NeedCardProps) {
             How to do this →
           </button>
           <button
-            onClick={() => toggleNeedDone(need.id)}
+            onClick={() => {
+              toggleNeedDone(need.id)
+              if (!need.done) {
+                addActivityItem({
+                  text: `<strong>Requirement fulfilled</strong> — ${need.title}`,
+                  time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+                  color: "violet",
+                })
+              }
+            }}
             className={cn(
               "flex-1 text-sm font-medium rounded-lg py-2 border transition-colors text-center",
               need.done

@@ -28,6 +28,7 @@ export function TaskRow({ task }: TaskRowProps) {
   const toggleTaskStatus = usePortalStore((s) => s.toggleTaskStatus)
   const updateTask = usePortalStore((s) => s.updateTask)
   const deleteTask = usePortalStore((s) => s.deleteTask)
+  const addActivityItem = usePortalStore((s) => s.addActivityItem)
 
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(task.name)
@@ -95,9 +96,16 @@ export function TaskRow({ task }: TaskRowProps) {
       {isAdmin ? (
         <button
           onClick={() => {
-            toggleTaskStatus(task.id)
             const newStatus = task.status === "done" ? "pending" : "done"
+            toggleTaskStatus(task.id)
             upsertTaskToDB({ ...task, status: newStatus as Task["status"] })
+            if (newStatus === "done") {
+              addActivityItem({
+                text: `<strong>Task completed</strong> — ${task.name}`,
+                time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+                color: "green",
+              })
+            }
           }}
           className={cn(
             "w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors",

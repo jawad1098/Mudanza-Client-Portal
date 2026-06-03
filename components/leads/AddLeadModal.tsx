@@ -52,6 +52,11 @@ export function AddLeadModal({ isOpen, onClose, onSaved }: AddLeadModalProps) {
 
     addLead(lead)
     if (onSaved) await onSaved(lead)
+    usePortalStore.getState().addActivityItem({
+      text: `<strong>New lead added</strong> — ${lead.customerName}${lead.from ? ` · ${lead.from} → ${lead.to}` : ""}`,
+      time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+      color: "blue",
+    })
 
     setForm(empty())
     setSaving(false)

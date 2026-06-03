@@ -6,6 +6,13 @@ import type {
 } from "@/types"
 import { CONFIG } from "@/lib/config"
 
+export interface ClientConfig {
+  name: string
+  fullName: string
+  company: string
+  initials: string
+}
+
 export interface ContactConfig {
   name: string
   title: string
@@ -140,6 +147,9 @@ interface PortalStore {
   workingHours: WorkingHourEntry[]
   updateContactConfig: (updates: Partial<ContactConfig>) => void
   updateWorkingHour: (day: string, open: string | null, close: string | null) => void
+
+  clientConfig: ClientConfig
+  updateClientConfig: (updates: Partial<ClientConfig>) => void
 }
 
 // ── Store (localStorage — instant UI, Supabase sync handled separately) ───────
@@ -200,6 +210,14 @@ export const usePortalStore = create<PortalStore>()(
       updateWorkingHour: (day, open, close) => set((s) => ({
         workingHours: s.workingHours.map((h) => h.day === day ? { ...h, open, close } : h)
       })),
+
+      clientConfig: {
+        name: CONFIG.client.name,
+        fullName: CONFIG.client.fullName,
+        company: CONFIG.client.company,
+        initials: CONFIG.client.initials,
+      },
+      updateClientConfig: (updates) => set((s) => ({ clientConfig: { ...s.clientConfig, ...updates } })),
     }),
     {
       name: "portal-v1",
