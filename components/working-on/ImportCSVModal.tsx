@@ -26,10 +26,32 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Proper CSV parser — handles quoted fields with commas inside
+  const splitCSVRow = (line: string): string[] => {
+    const cols: string[] = []
+    let current = ""
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++ } // escaped quote
+        else inQuotes = !inQuotes
+      } else if (ch === "," && !inQuotes) {
+        cols.push(current.trim())
+        current = ""
+      } else {
+        current += ch
+      }
+    }
+    cols.push(current.trim())
+    return cols
+  }
+
   const parseCSV = (text: string) => {
-    const lines = text.trim().split("\n")
+    // Normalise line endings
+    const lines = text.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
     if (lines.length < 2) { setError("CSV must have a header row and at least one data row."); return }
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
+    const headers = splitCSVRow(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z]/g, ""))
     const taskIdx = headers.indexOf("task")
     const catIdx = headers.indexOf("category")
     const weekIdx = headers.indexOf("week")
@@ -38,7 +60,8 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
 
     const rows: ParsedRow[] = []
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(",").map((c) => c.trim())
+      if (!lines[i].trim()) continue
+      const cols = splitCSVRow(lines[i])
       if (!cols[taskIdx]) continue
       rows.push({
         name: cols[taskIdx] || "",
