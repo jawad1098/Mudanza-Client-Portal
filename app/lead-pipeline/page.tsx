@@ -96,11 +96,9 @@ export default function LeadPipelinePage() {
             >
               <Download size={14} /> Export CSV
             </button>
-            {isAdmin && (
-              <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 text-sm bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800">
-                <Plus size={14} /> Add Lead
-              </button>
-            )}
+            <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 text-sm bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800">
+              <Plus size={14} /> Add Lead
+            </button>
           </div>
         }
       />

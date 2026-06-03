@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Plus, Upload } from "lucide-react"
-import { isToday, isThisWeek, isThisMonth, parseISO } from "date-fns"
+import { Plus, Upload, Download } from "lucide-react"
+import { isToday, isThisWeek, isThisMonth, parseISO, format } from "date-fns"
 import { usePortalStore } from "@/store/portalStore"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { FilterBar } from "@/components/working-on/FilterBar"
@@ -9,9 +9,29 @@ import { TaskRow } from "@/components/working-on/TaskRow"
 import { AddTaskModal } from "@/components/working-on/AddTaskModal"
 import { ImportCSVModal } from "@/components/working-on/ImportCSVModal"
 import { fetchTasksFromDB } from "@/lib/taskSync"
-import type { TaskWeek } from "@/types"
+import type { Task, TaskWeek } from "@/types"
 
 const WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
+
+function exportTasksCSV(tasks: Task[], monthLabel: string) {
+  const headers = ["Task", "Category", "Week", "Date", "Status"]
+  const rows = tasks.map((t) => [t.name, t.category, t.week, t.date, t.status])
+  const csv = [headers, ...rows]
+    .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+    .join("\n")
+  const blob = new Blob([csv], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `mudanza-tasks-${monthLabel}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function WorkingOnPage() {
   const tasks = usePortalStore((s) => s.tasks)
@@ -20,20 +40,22 @@ export default function WorkingOnPage() {
   const [filter, setFilter] = useState("All")
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  const now = new Date()
+  const [exportMonth, setExportMonth] = useState(now.getMonth())
+  const [exportYear, setExportYear] = useState(now.getFullYear())
+  const [exportFilter, setExportFilter] = useState<"done" | "all">("done")
 
   const loadTasks = useCallback(async () => {
     setLoading(true)
     const dbTasks = await fetchTasksFromDB()
-    if (dbTasks.length > 0) {
-      setTasksFromDB(dbTasks)
-    }
+    if (dbTasks.length > 0) setTasksFromDB(dbTasks)
     setLoading(false)
   }, [setTasksFromDB])
 
-  useEffect(() => {
-    loadTasks()
-  }, [loadTasks])
+  useEffect(() => { loadTasks() }, [loadTasks])
 
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
@@ -51,21 +73,45 @@ export default function WorkingOnPage() {
   const total = tasks.length
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
+  const handleExport = () => {
+    const exportTasks = tasks.filter((t) => {
+      try {
+        const d = parseISO(t.date)
+        const matchMonth = d.getMonth() === exportMonth && d.getFullYear() === exportYear
+        const matchStatus = exportFilter === "all" || t.status === "done"
+        return matchMonth && matchStatus
+      } catch { return false }
+    })
+    const label = `${MONTHS[exportMonth].toLowerCase()}-${exportYear}`
+    exportTasksCSV(exportTasks, label)
+    setShowExport(false)
+  }
+
   return (
     <div>
       <PageHeader
         title="I'm Working On"
         description="All tasks for this month's deliverables"
-        action={isAdmin ? (
+        action={
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowImport(true)} className="flex items-center gap-2 text-sm border border-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50">
-              <Upload size={14} /> Import CSV
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-2 text-sm border border-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50"
+            >
+              <Download size={14} /> Export
             </button>
-            <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 text-sm bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800">
-              <Plus size={14} /> Add Tasks
-            </button>
+            {isAdmin && (
+              <>
+                <button onClick={() => setShowImport(true)} className="flex items-center gap-2 text-sm border border-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50">
+                  <Upload size={14} /> Import CSV
+                </button>
+                <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 text-sm bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800">
+                  <Plus size={14} /> Add Tasks
+                </button>
+              </>
+            )}
           </div>
-        ) : null}
+        }
       />
 
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
@@ -95,7 +141,9 @@ export default function WorkingOnPage() {
               if (!weekTasks.length) return null
               return (
                 <div key={week}>
-                  <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2 mt-4 first:mt-0 px-3">{week} — June 2026</p>
+                  <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2 mt-4 first:mt-0 px-3">
+                    {week} — {format(now, "MMMM yyyy")}
+                  </p>
                   {weekTasks.map((t) => <TaskRow key={t.id} task={t} />)}
                 </div>
               )
@@ -106,6 +154,56 @@ export default function WorkingOnPage() {
           </>
         )}
       </div>
+
+      {/* Export modal */}
+      {showExport && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Export Tasks</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Month</label>
+                <select
+                  value={exportMonth}
+                  onChange={(e) => setExportMonth(Number(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Year</label>
+                <select
+                  value={exportYear}
+                  onChange={(e) => setExportYear(Number(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {[2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Include</label>
+                <select
+                  value={exportFilter}
+                  onChange={(e) => setExportFilter(e.target.value as "done" | "all")}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="done">Completed tasks only</option>
+                  <option value="all">All tasks</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setShowExport(false)} className="flex-1 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                Cancel
+              </button>
+              <button onClick={handleExport} className="flex-1 bg-blue-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-800 flex items-center justify-center gap-2">
+                <Download size={14} /> Download CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AddTaskModal isOpen={showAdd} onClose={() => setShowAdd(false)} />
       <ImportCSVModal isOpen={showImport} onClose={() => setShowImport(false)} />
