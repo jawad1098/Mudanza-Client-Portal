@@ -1,5 +1,5 @@
 "use client"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Plus, Upload } from "lucide-react"
 import { isToday, isThisWeek, isThisMonth, parseISO } from "date-fns"
 import { usePortalStore } from "@/store/portalStore"
@@ -8,6 +8,7 @@ import { FilterBar } from "@/components/working-on/FilterBar"
 import { TaskRow } from "@/components/working-on/TaskRow"
 import { AddTaskModal } from "@/components/working-on/AddTaskModal"
 import { ImportCSVModal } from "@/components/working-on/ImportCSVModal"
+import { fetchTasksFromDB } from "@/lib/taskSync"
 import type { TaskWeek } from "@/types"
 
 const WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
@@ -15,9 +16,24 @@ const WEEKS: TaskWeek[] = ["W1", "W2", "W3", "W4"]
 export default function WorkingOnPage() {
   const tasks = usePortalStore((s) => s.tasks)
   const isAdmin = usePortalStore((s) => s.isAdminMode)
+  const setTasksFromDB = usePortalStore((s) => s.setTasksFromDB)
   const [filter, setFilter] = useState("All")
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  const loadTasks = useCallback(async () => {
+    setLoading(true)
+    const dbTasks = await fetchTasksFromDB()
+    if (dbTasks.length > 0) {
+      setTasksFromDB(dbTasks)
+    }
+    setLoading(false)
+  }, [setTasksFromDB])
+
+  useEffect(() => {
+    loadTasks()
+  }, [loadTasks])
 
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
@@ -67,18 +83,27 @@ export default function WorkingOnPage() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4">
-        {WEEKS.map((week) => {
-          const weekTasks = filtered.filter((t) => t.week === week)
-          if (!weekTasks.length) return null
-          return (
-            <div key={week}>
-              <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2 mt-4 first:mt-0 px-3">{week} — June 2026</p>
-              {weekTasks.map((t) => <TaskRow key={t.id} task={t} />)}
-            </div>
-          )
-        })}
-        {filtered.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-12">No tasks match this filter.</p>
+        {loading ? (
+          <div className="py-12 text-center">
+            <div className="inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-400 mt-2">Loading tasks…</p>
+          </div>
+        ) : (
+          <>
+            {WEEKS.map((week) => {
+              const weekTasks = filtered.filter((t) => t.week === week)
+              if (!weekTasks.length) return null
+              return (
+                <div key={week}>
+                  <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2 mt-4 first:mt-0 px-3">{week} — June 2026</p>
+                  {weekTasks.map((t) => <TaskRow key={t.id} task={t} />)}
+                </div>
+              )
+            })}
+            {filtered.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-12">No tasks match this filter.</p>
+            )}
+          </>
         )}
       </div>
 

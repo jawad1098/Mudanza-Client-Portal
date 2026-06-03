@@ -46,20 +46,32 @@ export default function SendFilesPage() {
     const errors: string[] = []
 
     for (const file of files) {
-      // Set progress to uploading
       setProgress((prev) => ({ ...prev, [file.name]: 10 }))
 
-      const filePath = `${folder}/${Date.now()}_${file.name}`
+      try {
+        // Convert File to ArrayBuffer for reliable browser upload
+        const arrayBuffer = await file.arrayBuffer()
+        const filePath = `${folder}/${Date.now()}_${file.name}`
 
-      const { error } = await supabase.storage
-        .from("portal-files")
-        .upload(filePath, file, { upsert: true })
+        const { error } = await supabase.storage
+          .from("portal-files")
+          .upload(filePath, arrayBuffer, {
+            upsert: true,
+            contentType: file.type || "application/octet-stream",
+          })
 
-      if (error) {
-        errors.push(file.name)
+        if (error) {
+          console.error(`Upload failed for ${file.name}:`, error.message)
+          errors.push(`${file.name}: ${error.message}`)
+          setProgress((prev) => ({ ...prev, [file.name]: 0 }))
+        } else {
+          setProgress((prev) => ({ ...prev, [file.name]: 100 }))
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Unknown error"
+        console.error(`Exception uploading ${file.name}:`, msg)
+        errors.push(`${file.name}: ${msg}`)
         setProgress((prev) => ({ ...prev, [file.name]: 0 }))
-      } else {
-        setProgress((prev) => ({ ...prev, [file.name]: 100 }))
       }
     }
 
@@ -75,7 +87,7 @@ export default function SendFilesPage() {
     setSending(false)
 
     if (errors.length) {
-      showToast(`${errors.length} file(s) failed to upload`, "error")
+      showToast(`Upload failed: ${errors[0]}`, "error")
     } else {
       setFiles([])
       setProgress({})
