@@ -4,6 +4,23 @@ import { nanoid } from "nanoid"
 import type {
   Task, NeedItem, ActivityItem, Service, Lead, Analytics, ContentItem, ContentColumn,
 } from "@/types"
+import { CONFIG } from "@/lib/config"
+
+export interface ContactConfig {
+  name: string
+  title: string
+  whatsapp: string
+  email: string
+  whatsappResponseTime: string
+  emailResponseTime: string
+  skills: string[]
+}
+
+export interface WorkingHourEntry {
+  day: string
+  open: string | null
+  close: string | null
+}
 
 // ── Default seed data ─────────────────────────────────────────────────────────
 const defaultServices: Service[] = [
@@ -118,6 +135,11 @@ interface PortalStore {
   moveContentItem: (id: string, column: ContentColumn) => void
   approveContent: (id: string) => void
   deleteContentItem: (id: string) => void
+
+  contactConfig: ContactConfig
+  workingHours: WorkingHourEntry[]
+  updateContactConfig: (updates: Partial<ContactConfig>) => void
+  updateWorkingHour: (day: string, open: string | null, close: string | null) => void
 }
 
 // ── Store (localStorage — instant UI, Supabase sync handled separately) ───────
@@ -163,6 +185,21 @@ export const usePortalStore = create<PortalStore>()(
       moveContentItem: (id, column) => set((s) => ({ content: s.content.map((c) => c.id === id ? { ...c, column } : c) })),
       approveContent: (id) => set((s) => ({ content: s.content.map((c) => c.id === id ? { ...c, approved: true } : c) })),
       deleteContentItem: (id) => set((s) => ({ content: s.content.filter((c) => c.id !== id) })),
+
+      contactConfig: {
+        name: CONFIG.freelancer.name,
+        title: CONFIG.freelancer.title,
+        whatsapp: CONFIG.freelancer.whatsapp,
+        email: CONFIG.freelancer.email,
+        whatsappResponseTime: CONFIG.freelancer.whatsappResponseTime,
+        emailResponseTime: CONFIG.freelancer.emailResponseTime,
+        skills: CONFIG.freelancer.skills,
+      },
+      workingHours: CONFIG.workingHours,
+      updateContactConfig: (updates) => set((s) => ({ contactConfig: { ...s.contactConfig, ...updates } })),
+      updateWorkingHour: (day, open, close) => set((s) => ({
+        workingHours: s.workingHours.map((h) => h.day === day ? { ...h, open, close } : h)
+      })),
     }),
     {
       name: "portal-v1",
