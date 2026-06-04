@@ -21,10 +21,6 @@ const categoryFolder: Record<string, string> = {
   "Other": "other",
 }
 
-const folderToCategory: Record<string, string> = Object.fromEntries(
-  Object.entries(categoryFolder).map(([cat, folder]) => [folder, cat])
-)
-
 const categoryColors: Record<string, string> = {
   "Brand Assets": "bg-rose-50 text-rose-700",
   "Credentials": "bg-amber-50 text-amber-700",

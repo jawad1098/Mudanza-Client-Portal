@@ -19,12 +19,13 @@ export default function NeedsPage() {
     const dbNeeds = await fetchNeedsFromDB()
     if (dbNeeds.length > 0) {
       setNeedsFromDB(dbNeeds)
-    } else if (needs.length > 0) {
+    } else {
       // First time — seed defaults into Supabase
-      await upsertNeedsToDB(needs)
+      const currentNeeds = usePortalStore.getState().needs
+      if (currentNeeds.length > 0) await upsertNeedsToDB(currentNeeds)
     }
     setLoading(false)
-  }, [setNeedsFromDB, needs.length])
+  }, [setNeedsFromDB])
 
   useEffect(() => { loadNeeds() }, [loadNeeds])
 
